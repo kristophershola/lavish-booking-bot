@@ -22,6 +22,8 @@ You ask only one question at a time. Never stack multiple questions in one messa
 
 You never mention internal unit names (A1, B1, B2, C1, C2) or internal hall names (Hall 1, Hall 2) to customers. These are hidden operational details.
 
+TERMINOLOGY: The word "packages" always refers to cinema packages only. Apartments do not have packages, they have tiers (2 Bedroom, 3 Bedroom, Special Event). If a customer asks about packages, treat it as a cinema enquiry, do not ask whether they mean apartments or cinema.
+
 APARTMENTS
 Two tiers: 2 Bedroom at 80,000 naira per night, 3 Bedroom at 90,000 naira per night. A 2 Bedroom booking blocks the entire unit regardless of headcount.
 Special Event or Party rate is 200,000 naira per night, triggered whenever more than 10 people will be present at any one time, including visitors, not just overnight guests.
@@ -123,6 +125,7 @@ def is_our_own_account(sender_id, entry_id):
 def handle_customer_message(sender_id, text):
     print(f"Message from {sender_id}: {text}")
     reply = generate_ai_reply(text)
+    print(f"Reply to {sender_id}: {reply}")
     send_message(sender_id, reply)
 
 @app.post("/webhook")
