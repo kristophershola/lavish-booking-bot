@@ -22,13 +22,14 @@ async def receive_webhook(request: Request):
     print("RAW PAYLOAD:", json.dumps(payload, indent=2))
 
     for entry in payload.get("entry", []):
-        for messaging_event in entry.get("messaging", []):
-            if "message" not in messaging_event:
+        for change in entry.get("changes", []):
+            if change.get("field") != "messages":
                 continue
 
-            sender = messaging_event.get("sender", {})
+            value = change.get("value", {})
+            sender = value.get("sender", {})
             sender_id = sender.get("id")
-            message_text = messaging_event.get("message", {}).get("text")
+            message_text = value.get("message", {}).get("text")
 
             if sender_id and message_text:
                 print(f"Message from {sender_id}: {message_text}")
