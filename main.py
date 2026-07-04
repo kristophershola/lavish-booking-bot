@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, Response
 import os
 import json
+import time
 import requests
 
 app = FastAPI()
@@ -47,7 +48,7 @@ async def verify_webhook(request: Request):
         return Response(content=challenge, media_type="text/plain")
     return Response(status_code=403)
 
-def generate_ai_reply(customer_message):
+def generate_ai_reply(customer_message, retries=2):
     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     headers = {
         "Content-Type": "application/json",
@@ -61,14 +62,20 @@ def generate_ai_reply(customer_message):
             {"role": "user", "parts": [{"text": customer_message}]}
         ]
     }
-    response = requests.post(url, headers=headers, json=body)
-    data = response.json()
-    print("GEMINI RESPONSE:", json.dumps(data, indent=2))
 
-    try:
-        return data["candidates"][0]["content"]["parts"][0]["text"]
-    except (KeyError, IndexError):
-        return "Thanks for reaching out, a team member will be with you shortly."
+    for attempt in range(retries + 1):
+        response = requests.post(url, headers=headers, json=body)
+        data = response.json()
+
+        if "candidates" in data:
+            return data["candidates"][0]["content"]["parts"][0]["text"]
+
+        print(f"GEMINI ATTEMPT {attempt + 1} FAILED:", json.dumps(data, indent=2))
+
+        if attempt < retries:
+            time.sleep(2)
+
+    return "Thanks for reaching out, a team member will be with you shortly."
 
 def fetch_recent_conversation_messages(limit=5):
     url = f"https://graph.facebook.com/v21.0/{IG_ACCOUNT_ID}/conversations"
