@@ -20,7 +20,6 @@ async def verify_webhook(request: Request):
     return Response(status_code=403)
 
 def fetch_latest_conversation_message():
-    # Step 1: get just the id of the most recently active conversation
     url = f"https://graph.facebook.com/v21.0/{IG_ACCOUNT_ID}/conversations"
     params = {
         "platform": "instagram",
@@ -30,16 +29,14 @@ def fetch_latest_conversation_message():
     }
     response = requests.get(url, params=params)
     data = response.json()
-    print("CONVERSATIONS LIST RESPONSE:", json.dumps(data, indent=2))
 
     conversations = data.get("data", [])
     if not conversations:
         print("No conversations found")
-        return
+        return None, None
 
     conversation_id = conversations[0].get("id")
 
-    # Step 2: fetch just the latest message from that one conversation
     message_url = f"https://graph.facebook.com/v21.0/{conversation_id}"
     message_params = {
         "fields": "messages.limit(1){message,from,created_time}",
@@ -47,18 +44,24 @@ def fetch_latest_conversation_message():
     }
     message_response = requests.get(message_url, params=message_params)
     message_data = message_response.json()
-    print("LATEST MESSAGE RESPONSE:", json.dumps(message_data, indent=2))
-    return message_data
+
+    messages = message_data.get("messages", {}).get("data", [])
+    if not messages:
+        return None, None
+
+    latest = messages[0]
+    sender_username = latest.get("from", {}).get("username")
+    sender_id = latest.get("from", {}).get("id")
+    text = latest.get("message")
+
+    return sender_id, text
 
 @app.post("/webhook")
 async def receive_webhook(request: Request):
     payload = await request.json()
-    print("RAW PAYLOAD:", json.dumps(payload, indent=2))
 
     for entry in payload.get("entry", []):
         for messaging_event in entry.get("messaging", []):
-            print("MESSAGING EVENT:", json.dumps(messaging_event, indent=2))
-
             sender = messaging_event.get("sender", {})
             sender_id = sender.get("id")
 
@@ -69,6 +72,8 @@ async def receive_webhook(request: Request):
 
             message_edit = messaging_event.get("message_edit")
             if message_edit:
-                fetch_latest_conversation_message()
+                fetched_sender_id, fetched_text = fetch_latest_conversation_message()
+                if fetched_text:
+                    print(f"Message from {fetched_sender_id}: {fetched_text}")
 
     return Response(status_code=200)
