@@ -161,6 +161,15 @@ def handle_customer_message(sender_id, text):
     print(f"Reply to {sender_id}: {reply}")
     send_message(sender_id, reply)
 
+@app.on_event("startup")
+async def seed_processed_messages_on_startup():
+    recent_messages = fetch_recent_conversation_messages(limit=10)
+    for msg in recent_messages:
+        msg_id = msg.get("id")
+        if msg_id:
+            processed_message_ids.add(msg_id)
+    print(f"Startup: seeded {len(processed_message_ids)} existing message ids as already processed")
+
 @app.post("/webhook")
 async def receive_webhook(request: Request):
     payload = await request.json()
