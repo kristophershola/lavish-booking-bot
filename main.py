@@ -73,9 +73,15 @@ async def receive_webhook(request: Request):
     payload = await request.json()
 
     for entry in payload.get("entry", []):
+        entry_id = entry.get("id")
+
         for messaging_event in entry.get("messaging", []):
             sender = messaging_event.get("sender", {})
             sender_id = sender.get("id")
+
+            if sender_id == entry_id:
+                print("Skipping event, this is our own outgoing message")
+                continue
 
             message = messaging_event.get("message")
             if message and message.get("text"):
@@ -87,6 +93,9 @@ async def receive_webhook(request: Request):
             message_edit = messaging_event.get("message_edit")
             if message_edit:
                 fetched_sender_id, fetched_text = fetch_latest_conversation_message()
+                if fetched_sender_id == entry_id:
+                    print("Skipping event, this is our own outgoing message")
+                    continue
                 if fetched_text:
                     print(f"Message from {fetched_sender_id}: {fetched_text}")
                     send_message(fetched_sender_id, f"You said: {fetched_text}")
