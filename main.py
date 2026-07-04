@@ -9,7 +9,7 @@ VERIFY_TOKEN = os.getenv("META_VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 IG_ACCOUNT_ID = os.getenv("IG_ACCOUNT_ID")
 BOT_ACCOUNT_ID = os.getenv("BOT_ACCOUNT_ID")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 processed_message_ids = set()
 
@@ -48,25 +48,25 @@ async def verify_webhook(request: Request):
     return Response(status_code=403)
 
 def generate_ai_reply(customer_message):
-    url = "https://api.openai.com/v1/chat/completions"
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY
     }
     body = {
-        "model": "gpt-4o-mini",
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": customer_message}
-        ],
-        "max_tokens": 300
+        "system_instruction": {
+            "parts": [{"text": SYSTEM_PROMPT}]
+        },
+        "contents": [
+            {"role": "user", "parts": [{"text": customer_message}]}
+        ]
     }
     response = requests.post(url, headers=headers, json=body)
     data = response.json()
-    print("OPENAI RESPONSE:", json.dumps(data, indent=2))
+    print("GEMINI RESPONSE:", json.dumps(data, indent=2))
 
     try:
-        return data["choices"][0]["message"]["content"]
+        return data["candidates"][0]["content"]["parts"][0]["text"]
     except (KeyError, IndexError):
         return "Thanks for reaching out, a team member will be with you shortly."
 
