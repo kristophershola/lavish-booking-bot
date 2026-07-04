@@ -13,6 +13,8 @@ BOT_ACCOUNT_ID = os.getenv("BOT_ACCOUNT_ID")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 processed_message_ids = set()
+conversation_history = {}
+MAX_HISTORY_TURNS = 10
 
 SYSTEM_PROMPT = """You are the booking assistant for Lavish Apartments & Cinema, a premium hospitality business in Nigeria. You handle Instagram DM enquiries for both apartment bookings and cinema bookings.
 
@@ -23,6 +25,8 @@ You ask only one question at a time. Never stack multiple questions in one messa
 You never mention internal unit names (A1, B1, B2, C1, C2) or internal hall names (Hall 1, Hall 2) to customers. These are hidden operational details.
 
 TERMINOLOGY: The word "packages" always refers to cinema packages only. Apartments do not have packages, they have tiers (2 Bedroom, 3 Bedroom, Special Event). If a customer asks about packages, treat it as a cinema enquiry, do not ask whether they mean apartments or cinema.
+
+Always use the ongoing conversation history to understand what the customer is referring to. If they ask a short follow up question like "how many people does it cover" right after discussing a specific cinema package, answer about that same package, do not ask which service they mean.
 
 APARTMENTS
 Two tiers: 2 Bedroom at 80,000 naira per night, 3 Bedroom at 90,000 naira per night. A 2 Bedroom booking blocks the entire unit regardless of headcount.
@@ -50,19 +54,21 @@ async def verify_webhook(request: Request):
         return Response(content=challenge, media_type="text/plain")
     return Response(status_code=403)
 
-def generate_ai_reply(customer_message, retries=2):
+def generate_ai_reply(sender_id, customer_message, retries=2):
     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     headers = {
         "Content-Type": "application/json",
         "x-goog-api-key": GEMINI_API_KEY
     }
+
+    history = conversation_history.get(sender_id, [])
+    contents = history + [{"role": "user", "parts": [{"text": customer_message}]}]
+
     body = {
         "system_instruction": {
             "parts": [{"text": SYSTEM_PROMPT}]
         },
-        "contents": [
-            {"role": "user", "parts": [{"text": customer_message}]}
-        ]
+        "contents": contents
     }
 
     for attempt in range(retries + 1):
@@ -70,7 +76,13 @@ def generate_ai_reply(customer_message, retries=2):
         data = response.json()
 
         if "candidates" in data:
-            return data["candidates"][0]["content"]["parts"][0]["text"]
+            reply_text = data["candidates"][0]["content"]["parts"][0]["text"]
+
+            history.append({"role": "user", "parts": [{"text": customer_message}]})
+            history.append({"role": "model", "parts": [{"text": reply_text}]})
+            conversation_history[sender_id] = history[-(MAX_HISTORY_TURNS * 2):]
+
+            return reply_text
 
         print(f"GEMINI ATTEMPT {attempt + 1} FAILED:", json.dumps(data, indent=2))
 
@@ -124,7 +136,7 @@ def is_our_own_account(sender_id, entry_id):
 
 def handle_customer_message(sender_id, text):
     print(f"Message from {sender_id}: {text}")
-    reply = generate_ai_reply(text)
+    reply = generate_ai_reply(sender_id, text)
     print(f"Reply to {sender_id}: {reply}")
     send_message(sender_id, reply)
 
