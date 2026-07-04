@@ -20,40 +20,18 @@ async def verify_webhook(request: Request):
         return Response(content=challenge, media_type="text/plain")
     return Response(status_code=403)
 
-def fetch_latest_conversation_message():
-    url = f"https://graph.facebook.com/v21.0/{IG_ACCOUNT_ID}/conversations"
+def fetch_message_by_id(mid):
+    url = f"https://graph.facebook.com/v21.0/{mid}"
     params = {
-        "platform": "instagram",
-        "fields": "id,updated_time",
-        "limit": 1,
+        "fields": "message,from,created_time",
         "access_token": PAGE_ACCESS_TOKEN
     }
     response = requests.get(url, params=params)
     data = response.json()
+    print("MESSAGE BY ID RESPONSE:", json.dumps(data, indent=2))
 
-    conversations = data.get("data", [])
-    if not conversations:
-        print("No conversations found")
-        return None, None
-
-    conversation_id = conversations[0].get("id")
-
-    message_url = f"https://graph.facebook.com/v21.0/{conversation_id}"
-    message_params = {
-        "fields": "messages.limit(1){message,from,created_time}",
-        "access_token": PAGE_ACCESS_TOKEN
-    }
-    message_response = requests.get(message_url, params=message_params)
-    message_data = message_response.json()
-
-    messages = message_data.get("messages", {}).get("data", [])
-    if not messages:
-        return None, None
-
-    latest = messages[0]
-    sender_id = latest.get("from", {}).get("id")
-    text = latest.get("message")
-
+    text = data.get("message")
+    sender_id = data.get("from", {}).get("id")
     return sender_id, text
 
 def send_message(recipient_id, message_text):
@@ -96,12 +74,17 @@ async def receive_webhook(request: Request):
 
             message_edit = messaging_event.get("message_edit")
             if message_edit:
-                fetched_sender_id, fetched_text = fetch_latest_conversation_message()
+                mid = message_edit.get("mid")
+                fetched_sender_id, fetched_text = fetch_message_by_id(mid)
+
                 if fetched_sender_id and is_our_own_account(fetched_sender_id, entry_id):
                     print("Skipping event, this is our own outgoing message")
                     continue
+
                 if fetched_text:
                     print(f"Message from {fetched_sender_id}: {fetched_text}")
                     send_message(fetched_sender_id, f"You said: {fetched_text}")
+                else:
+                    print(f"No text found for mid {mid}, raw fetch may have failed")
 
     return Response(status_code=200)
