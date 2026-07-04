@@ -30,7 +30,7 @@ You never mention internal unit names (A1, B1, B2, C1, C2) or internal hall name
 
 TERMINOLOGY: The word "packages" always refers to cinema packages only. Apartments do not have packages, they have tiers (2 Bedroom, 3 Bedroom, Special Event). If a customer asks about packages, treat it as a cinema enquiry, do not ask whether they mean apartments or cinema.
 
-Always use the ongoing conversation history to understand what the customer is referring to. If they ask a short follow up question like "how many people does it cover" right after discussing a specific cinema package, answer about that same package, do not ask which service they mean.
+Always use the ongoing conversation history to understand what the customer is referring to. Once a detail like a date has already been established earlier in the conversation, do not ask for it again, only ask for whatever information is still missing.
 
 DATES: Use only the date information provided below in the DATE CONTEXT section for today's date and any relative date the customer mentions, such as "tomorrow" or "this weekend". Never calculate or guess dates yourself.
 
@@ -82,6 +82,9 @@ def generate_ai_reply(sender_id, customer_message, retries=2):
 
     history = conversation_history.get(sender_id, [])
     contents = history + [{"role": "user", "parts": [{"text": customer_message}]}]
+
+    print(f"HISTORY LENGTH for {sender_id}: {len(history)} prior turns")
+    print(f"FULL CONTENTS SENT TO GEMINI for {sender_id}:", json.dumps(contents, indent=2))
 
     full_system_prompt = SYSTEM_PROMPT + "\n\n" + build_date_context()
 
@@ -137,7 +140,9 @@ def fetch_recent_conversation_messages(limit=5):
     message_response = requests.get(message_url, params=message_params)
     message_data = message_response.json()
 
-    return message_data.get("messages", {}).get("data", [])
+    messages = message_data.get("messages", {}).get("data", [])
+    messages_sorted = sorted(messages, key=lambda m: m.get("created_time", ""))
+    return messages_sorted
 
 def send_message(recipient_id, message_text):
     url = f"https://graph.facebook.com/v21.0/{IG_ACCOUNT_ID}/messages"
@@ -193,7 +198,7 @@ async def receive_webhook(request: Request):
             if message_edit:
                 recent_messages = fetch_recent_conversation_messages(limit=5)
 
-                for msg in reversed(recent_messages):
+                for msg in recent_messages:
                     msg_id = msg.get("id")
                     msg_sender = msg.get("from", {}).get("id")
                     msg_text = msg.get("message")
