@@ -1,9 +1,10 @@
 from fastapi import FastAPI, Request, Response
 import os
+import json
 
 app = FastAPI()
 
-VERIFY_TOKEN = os.getenv("META_VERIFY_TOKEN")  # you choose this string yourself
+VERIFY_TOKEN = os.getenv("META_VERIFY_TOKEN")
 
 @app.get("/webhook")
 async def verify_webhook(request: Request):
@@ -18,15 +19,17 @@ async def verify_webhook(request: Request):
 @app.post("/webhook")
 async def receive_webhook(request: Request):
     payload = await request.json()
-    
-    # Meta sends a batch of "entry" objects, each can contain messaging events
+
+    # Log the full payload so we can see its real structure in Railway logs
+    print("RAW PAYLOAD:", json.dumps(payload, indent=2))
+
     for entry in payload.get("entry", []):
         for messaging_event in entry.get("messaging", []):
-            sender_id = messaging_event["sender"]["id"]
+            sender = messaging_event.get("sender", {})
+            sender_id = sender.get("id")
             message_text = messaging_event.get("message", {}).get("text")
-            
-            if message_text:
-                # this is where you'd call your AI agent / booking engine
+
+            if sender_id and message_text:
                 print(f"Message from {sender_id}: {message_text}")
 
     return Response(status_code=200)
