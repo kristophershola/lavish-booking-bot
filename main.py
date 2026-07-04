@@ -39,6 +39,8 @@ async def receive_webhook(request: Request):
 
     for entry in payload.get("entry", []):
         for messaging_event in entry.get("messaging", []):
+            print("MESSAGING EVENT:", json.dumps(messaging_event, indent=2))
+
             sender = messaging_event.get("sender", {})
             sender_id = sender.get("id")
 
@@ -48,7 +50,10 @@ async def receive_webhook(request: Request):
                 continue
 
             message_edit = messaging_event.get("message_edit")
-            if message_edit and sender_id:
-                fetch_latest_message_from_conversation(sender_id)
+            if message_edit:
+                if sender_id:
+                    fetch_latest_message_from_conversation(sender_id)
+                else:
+                    print("No sender_id found on this event, cannot fetch conversation")
 
     return Response(status_code=200)
