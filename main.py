@@ -8,6 +8,7 @@ app = FastAPI()
 VERIFY_TOKEN = os.getenv("META_VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 IG_ACCOUNT_ID = os.getenv("IG_ACCOUNT_ID")
+BOT_ACCOUNT_ID = os.getenv("BOT_ACCOUNT_ID")
 
 @app.get("/webhook")
 async def verify_webhook(request: Request):
@@ -68,6 +69,9 @@ def send_message(recipient_id, message_text):
     print("SEND MESSAGE RESPONSE:", json.dumps(result, indent=2))
     return result
 
+def is_our_own_account(sender_id, entry_id):
+    return sender_id == entry_id or sender_id == BOT_ACCOUNT_ID
+
 @app.post("/webhook")
 async def receive_webhook(request: Request):
     payload = await request.json()
@@ -79,7 +83,7 @@ async def receive_webhook(request: Request):
             sender = messaging_event.get("sender", {})
             sender_id = sender.get("id")
 
-            if sender_id == entry_id:
+            if sender_id and is_our_own_account(sender_id, entry_id):
                 print("Skipping event, this is our own outgoing message")
                 continue
 
@@ -93,7 +97,7 @@ async def receive_webhook(request: Request):
             message_edit = messaging_event.get("message_edit")
             if message_edit:
                 fetched_sender_id, fetched_text = fetch_latest_conversation_message()
-                if fetched_sender_id == entry_id:
+                if fetched_sender_id and is_our_own_account(fetched_sender_id, entry_id):
                     print("Skipping event, this is our own outgoing message")
                     continue
                 if fetched_text:
