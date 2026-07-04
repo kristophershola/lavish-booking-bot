@@ -19,12 +19,11 @@ async def verify_webhook(request: Request):
         return Response(content=challenge, media_type="text/plain")
     return Response(status_code=403)
 
-def fetch_latest_message_from_conversation(sender_id):
+def fetch_latest_conversation_message():
     url = f"https://graph.facebook.com/v21.0/{IG_ACCOUNT_ID}/conversations"
     params = {
         "platform": "instagram",
-        "user_id": sender_id,
-        "fields": "messages{message,from,created_time}",
+        "fields": "participants,messages.limit(1){message,from,created_time}",
         "access_token": PAGE_ACCESS_TOKEN
     }
     response = requests.get(url, params=params)
@@ -51,9 +50,6 @@ async def receive_webhook(request: Request):
 
             message_edit = messaging_event.get("message_edit")
             if message_edit:
-                if sender_id:
-                    fetch_latest_message_from_conversation(sender_id)
-                else:
-                    print("No sender_id found on this event, cannot fetch conversation")
+                fetch_latest_conversation_message()
 
     return Response(status_code=200)
