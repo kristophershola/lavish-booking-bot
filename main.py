@@ -26,6 +26,7 @@ def fetch_message_text(mid):
     }
     response = requests.get(url, params=params)
     data = response.json()
+    print("GRAPH API RESPONSE:", json.dumps(data, indent=2))
     return data.get("message")
 
 @app.post("/webhook")
