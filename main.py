@@ -50,11 +50,23 @@ def fetch_latest_conversation_message():
         return None, None
 
     latest = messages[0]
-    sender_username = latest.get("from", {}).get("username")
     sender_id = latest.get("from", {}).get("id")
     text = latest.get("message")
 
     return sender_id, text
+
+def send_message(recipient_id, message_text):
+    url = f"https://graph.facebook.com/v21.0/{IG_ACCOUNT_ID}/messages"
+    payload = {
+        "recipient": {"id": recipient_id},
+        "message": {"text": message_text}
+    }
+    params = {"access_token": PAGE_ACCESS_TOKEN}
+
+    response = requests.post(url, params=params, json=payload)
+    result = response.json()
+    print("SEND MESSAGE RESPONSE:", json.dumps(result, indent=2))
+    return result
 
 @app.post("/webhook")
 async def receive_webhook(request: Request):
@@ -67,7 +79,9 @@ async def receive_webhook(request: Request):
 
             message = messaging_event.get("message")
             if message and message.get("text"):
-                print(f"Message from {sender_id}: {message.get('text')}")
+                text = message.get("text")
+                print(f"Message from {sender_id}: {text}")
+                send_message(sender_id, f"You said: {text}")
                 continue
 
             message_edit = messaging_event.get("message_edit")
@@ -75,5 +89,6 @@ async def receive_webhook(request: Request):
                 fetched_sender_id, fetched_text = fetch_latest_conversation_message()
                 if fetched_text:
                     print(f"Message from {fetched_sender_id}: {fetched_text}")
+                    send_message(fetched_sender_id, f"You said: {fetched_text}")
 
     return Response(status_code=200)
