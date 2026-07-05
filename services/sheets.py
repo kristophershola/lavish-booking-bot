@@ -111,3 +111,50 @@ def check_any_apartment_available(target_date):
         if booked is not True:
             available_units.append(tab)
     return (len(available_units) > 0, available_units)
+
+
+def _target_date_variants(target_date):
+    """Hall tab dates are written like '1-Jul', with one confirmed anomaly
+    seen as 'Jul 31'. This builds both forms, lowercased, so a row can be
+    matched regardless of which style was used for that particular cell.
+    """
+    day = str(target_date.day)
+    month_abbr = target_date.strftime("%b")
+    return {
+        f"{day}-{month_abbr}".lower(),
+        f"{month_abbr} {day}".lower(),
+    }
+
+
+def _get_session_value(rows, target_date, session_index):
+    """Looks up one hall tab's row for target_date, then returns the raw
+    value in the given session column (0 through 5, matching the 6 daily
+    sessions in order). Returns "" if that session is free, the package
+    shortcode or 'XTRA TIME' string if occupied, or None if this tab has
+    no row at all for that date.
+    """
+    variants = _target_date_variants(target_date)
+
+    for row in rows[1:]:  # skip header row
+        if not row:
+            continue
+        date_cell = str(row[0]).strip().lower()
+        if date_cell not in variants:
+            continue
+
+        column_index = session_index + 1  # column 0 is the date itself
+        if column_index < len(row) and row[column_index]:
+            return row[column_index].strip()
+        return ""
+
+    return None
+
+
+def is_session_available(rows, target_date, session_index):
+    """True if free, False if occupied (any shortcode or XTRA TIME), or
+    None if the date row itself was not found in this tab.
+    """
+    value = _get_session_value(rows, target_date, session_index)
+    if value is None:
+        return None
+    return value == ""
