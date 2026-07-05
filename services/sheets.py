@@ -29,10 +29,7 @@ def get_sheets_service():
 
 
 def get_values(sheet_range):
-    """Wraps the Sheets API 'Get Values' call, using A1 notation ranges,
-    per the project note that this is the correct approach over
-    'Get Sheets Info'.
-    """
+    """Wraps the Sheets API 'Get Values' call, using A1 notation ranges."""
     service = get_sheets_service()
     result = service.spreadsheets().values().get(
         spreadsheetId=SPREADSHEET_ID,
@@ -41,33 +38,76 @@ def get_values(sheet_range):
     return result.get("values", [])
 
 
-def debug_dump_tab(tab_name, max_rows=8):
-    """Temporary helper, not for production use. Fetches the first several
-    rows of a tab as raw values so we can confirm the real header layout
-    and date formatting before finalizing the parsing logic below.
-    """
-    values = get_values(f"'{tab_name}'!A1:Z{max_rows}")
-    return values
+def debug_dump_tab(tab_name, max_rows=50):
+    """Temporary helper, not for production use."""
+    return get_values(f"'{tab_name}'!A1:Z{max_rows}")
 
-
-# ---------------------------------------------------------------------
-# Everything below this line assumes the column layout described in the
-# project specification, but has not yet been confirmed against the real
-# sheet. Do not rely on these until debug_dump_tab() output has been
-# checked for both an apartment tab and a hall tab.
-# ---------------------------------------------------------------------
 
 def get_apartment_tab_rows(unit_tab):
-    """Returns all rows for one apartment tab (A1 through C2), including
-    the header row as rows[0].
-    Expected columns per the spec: Day, Date, AVAILABILITY, CHANNEL, GUEST NAME
+    """Returns all rows for one apartment tab (A1 through C2).
+
+    Confirmed real structure: header row is ["", "MONTH NAME", "AVAILABILITY",
+    "CHANNEL", "GUEST NAME"]. Each following row is [weekday, day-of-month]
+    when available, or [weekday, day-of-month, "BOOKED", channel, guest name]
+    when booked. A tab may contain more than one month, each new month
+    starting with another header row where column B holds the month name.
     """
     return get_values(f"'{unit_tab}'!A1:E1000")
 
 
 def get_hall_tab_rows(hall_tab):
-    """Returns all rows for one hall tab (HALL 1 or HALL 2), including the
-    header row as rows[0].
-    Expected columns per the spec: Date, then 6 session columns.
+    """Returns all rows for one hall tab (HALL 1 or HALL 2). Structure not
+    yet confirmed against the real sheet, pending a debug dump.
     """
     return get_values(f"'{hall_tab}'!A1:G1000")
+
+
+def _parse_apartment_tab_for_date(rows, target_date):
+    """Walks one apartment tab's rows and determines whether target_date is
+    booked. Tracks the current month as it moves down the sheet, since a
+    single tab can contain more than one month's block of rows.
+
+    Returns True if booked, False if available, or None if this tab has no
+    row at all for that date (treated the same as available by callers,
+    since a missing row means nothing has ever been recorded against it).
+    """
+    target_month = target_date.strftime("%B").upper()
+    target_day = str(target_date.day)
+    current_month = None
+
+    for row in rows:
+        if not row:
+            continue
+
+        col_a = row[0] if len(row) > 0 else ""
+        col_b = row[1] if len(row) > 1 else ""
+
+        # A header row has an empty first column and a month name (not a
+        # number) in the second column.
+        if col_a == "" and col_b and not str(col_b).strip().isdigit():
+            current_month = str(col_b).strip().upper()
+            continue
+
+        if current_month != target_month:
+            continue
+
+        if str(col_b).strip() == target_day:
+            availability = row[2].strip().upper() if len(row) > 2 and row[2] else ""
+            return availability == "BOOKED"
+
+    return None
+
+
+def check_any_apartment_available(target_date):
+    """Scans every apartment tab, never stopping at the first BOOKED result,
+    since a booking in one unit does not affect the others. Returns a tuple
+    of (is_available, list_of_available_unit_tabs). The unit list is for
+    internal use only, it must never be shown to a customer.
+    """
+    available_units = []
+    for tab in APARTMENT_TABS:
+        rows = get_apartment_tab_rows(tab)
+        booked = _parse_apartment_tab_for_date(rows, target_date)
+        if booked is not True:
+            available_units.append(tab)
+    return (len(available_units) > 0, available_units)
