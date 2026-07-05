@@ -17,16 +17,24 @@ SPECIAL_EVENT_RATE = {
 INTERNAL_UNITS = ["A1", "B1", "B2", "C1", "C2"]  # never expose to customers
 
 
-def check_apartment_availability(date, tier):
-    """Phase 3 work. Will read the Google Sheet (read-only) and return
-    whether a unit matching the requested tier is free on the given date.
+def check_apartment_availability(date):
+    """Returns True if at least one apartment unit is free on the given
+    date, regardless of which tier the customer wants, since all 5 units
+    support all tiers. Scans every unit tab before concluding
+    unavailability, never stops at the first booked one.
     """
-    raise NotImplementedError("Booking engine not yet built, see Phase 3 in project plan.")
+    from services.sheets import check_any_apartment_available
+    is_available, _available_units = check_any_apartment_available(date)
+    return is_available
 
 
-def calculate_apartment_price(tier, headcount, nights=1):
-    """Phase 3 work. Applies the Special Event override when headcount
-    exceeds SPECIAL_EVENT_RATE['trigger_headcount'], otherwise uses the
-    requested tier's standard nightly rate.
+def calculate_apartment_price(tier, headcount=None, nights=1):
+    """Applies the Special Event override when headcount exceeds the
+    trigger threshold, otherwise uses the requested tier's standard
+    nightly rate.
     """
-    raise NotImplementedError("Booking engine not yet built, see Phase 3 in project plan.")
+    if headcount is not None and headcount > SPECIAL_EVENT_RATE["trigger_headcount"]:
+        nightly_rate = SPECIAL_EVENT_RATE["price_per_night"]
+    else:
+        nightly_rate = APARTMENT_TIERS[tier]["price_per_night"]
+    return nightly_rate * nights
