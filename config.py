@@ -5,8 +5,11 @@ PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 IG_ACCOUNT_ID = os.getenv("IG_ACCOUNT_ID")
 BOT_ACCOUNT_ID = os.getenv("BOT_ACCOUNT_ID")
 
-# How many past turns (user + model pairs) to keep per sender
-MAX_HISTORY_TURNS = 10
+# How many past turns (user + model pairs) to keep per sender. Kept modest
+# since this gets resent on every single request, including every tool
+# call hop within one exchange, and Groq's free tier has a tokens per
+# minute limit as well as a daily request limit.
+MAX_HISTORY_TURNS = 6
 
 # Timezone used for all date and time calculations
 TIMEZONE = "Africa/Lagos"
