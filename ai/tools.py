@@ -114,11 +114,22 @@ def _parse_iso_date(date_string):
     return datetime.strptime(date_string, "%Y-%m-%d").date()
 
 
+def _coerce_int(value, default=None):
+    """Models occasionally pass numbers as strings, e.g. "3" instead of 3.
+    This coerces safely rather than letting arithmetic fail downstream.
+    """
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def execute_tool(name, args):
-    """Dispatches a Gemini function call to the real booking logic and
-    returns a plain dict suitable for sending back as a functionResponse.
-    Never lets internal unit or hall names leak into the response text
-    that eventually reaches the customer, only availability booleans.
+    """Dispatches a tool call to the real booking logic and returns a plain
+    dict suitable for sending back as a tool result. Never lets internal
+    unit or hall names leak into the response, only availability booleans.
     """
     try:
         if name == "check_apartment_availability":
@@ -128,20 +139,20 @@ def execute_tool(name, args):
 
         if name == "calculate_apartment_price":
             tier = args["tier"]
-            headcount = args.get("headcount")
-            nights = args.get("nights", 1)
+            headcount = _coerce_int(args.get("headcount"))
+            nights = _coerce_int(args.get("nights"), default=1)
             price = calculate_apartment_price(tier, headcount=headcount, nights=nights)
             return {"total_price_naira": price, "nights": nights}
 
         if name == "find_available_hall":
             date = _parse_iso_date(args["date"])
-            session_index = args["session_index"]
+            session_index = _coerce_int(args["session_index"])
             hall = find_available_hall(date, session_index)
             return {"available": hall is not None}
 
         if name == "check_double_session_availability":
             date = _parse_iso_date(args["date"])
-            first_session_index = args["first_session_index"]
+            first_session_index = _coerce_int(args["first_session_index"])
             hall = check_double_session_availability(date, first_session_index)
             return {"available": hall is not None}
 
