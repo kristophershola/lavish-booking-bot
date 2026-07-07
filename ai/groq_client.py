@@ -15,6 +15,8 @@ MAX_TOOL_HOPS = 3
 
 FALLBACK_REPLY = "Thanks for reaching out, a team member will be with you shortly."
 
+RETRY_DELAY_PATTERN = re.compile(r"try again in ([\d.]+)s", re.IGNORECASE)
+
 # Smaller, faster models occasionally hallucinate a fake textual function
 # call instead of using the real tool_calls mechanism, something like
 # <function=name>{"arg": "value"}</function>. This pattern catches that so
@@ -23,6 +25,23 @@ FAKE_FUNCTION_CALL_PATTERN = re.compile(
     r"<function=([a-zA-Z_][a-zA-Z0-9_]*)>\s*(\{.*?\})\s*</?function>",
     re.DOTALL
 )
+
+
+def _extract_suggested_delay(error_data, fallback=2.0):
+    """Groq's rate limit errors include the actual wait time needed, e.g.
+    'Please try again in 6.13s'. Using this instead of a fixed delay means
+    retries actually succeed instead of hitting the same window again.
+    """
+    try:
+        message = error_data.get("error", {}).get("message", "")
+    except AttributeError:
+        return fallback
+
+    match = RETRY_DELAY_PATTERN.search(message)
+    if match:
+        return float(match.group(1)) + 0.5  # small buffer on top
+
+    return fallback
 
 
 def _call_groq(messages, retries=2):
@@ -46,7 +65,9 @@ def _call_groq(messages, retries=2):
 
         print(f"GROQ ATTEMPT {attempt + 1} FAILED:", json.dumps(data, indent=2))
         if attempt < retries:
-            time.sleep(2)
+            delay = _extract_suggested_delay(data)
+            print(f"Waiting {delay}s before retrying, per Groq's suggested delay")
+            time.sleep(delay)
 
     return None
 
