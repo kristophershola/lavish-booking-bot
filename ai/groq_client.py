@@ -135,6 +135,20 @@ def generate_ai_reply(sender_id, customer_message):
                 result = execute_tool(name, args)
                 print(f"TOOL RESULT for {name}: {json.dumps(result)}")
 
+                # If tool returned a date format error, inject a correction note
+                # so the model retries with the correct ISO format
+                if result.get("error_type") == "date_format":
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": call["id"],
+                        "content": json.dumps(result)
+                    })
+                    messages.append({
+                        "role": "user",
+                        "content": f"[System: The tool requires ISO date format YYYY-MM-DD. The date '{args.get('date')}' was invalid. Please retry the tool call with the correct ISO format from the DATE CONTEXT.]"
+                    })
+                    continue
+
                 messages.append({
                     "role": "tool",
                     "tool_call_id": call["id"],

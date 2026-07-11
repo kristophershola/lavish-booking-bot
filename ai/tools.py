@@ -304,8 +304,12 @@ def execute_tool(name, args):
             hall = check_double_session_availability(date, first_session_index)
             return {"available": hall is not None}
 
-        return {"error": f"Unknown tool: {name}"}
+        return {"error": f"Unknown tool: {name}", "error_type": "unknown_tool"}
 
+    except ValueError as exc:
+        # Date format errors
+        print(f"TOOL DATE FORMAT ERROR for {name} with args {args}: {exc}")
+        return {"error": "Invalid date format. Use YYYY-MM-DD.", "error_type": "date_format"}
     except Exception as exc:
         print(f"TOOL EXECUTION ERROR for {name} with args {args}: {exc}")
-        return {"error": "Something went wrong checking that, please try again in a moment."}
+        return {"error": "Something went wrong checking that, please try again in a moment.", "error_type": "execution"}
