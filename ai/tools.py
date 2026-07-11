@@ -1,6 +1,5 @@
 from datetime import datetime
 
-from config import APP_URL
 from booking.apartments import check_apartment_availability, calculate_apartment_price
 from booking.cinema import find_available_hall, check_double_session_availability, list_available_cinema_sessions
 
@@ -135,9 +134,13 @@ TOOL_DECLARATIONS = [
         "function": {
             "name": "send_menu_image",
             "description": (
-                "Sends the cinema menu image to the customer showing all packages, "
-                "prices, and extras. Call this whenever a customer asks about cinema "
-                "packages, prices, what is included, or wants to see the menu."
+                "Sends the cinema menu image to the customer showing all packages and prices. "
+                "Only call this when the customer EXPLICITLY asks one of these: "
+                "'show menu', 'what are your packages', 'what do you have', "
+                "'how much', 'prices', 'what is included', 'what package includes', "
+                "'send menu', 'I want to see the menu'. "
+                "NEVER call this when the customer provides a date or session choice. "
+                "If you already sent the menu image in a previous turn, do not send it again."
             ),
             "parameters": {
                 "type": "object",
@@ -266,9 +269,13 @@ GEMINI_TOOL_DECLARATIONS = [
             {
                 "name": "send_menu_image",
                 "description": (
-                    "Sends the cinema menu image to the customer showing all packages, "
-                    "prices, and extras. Call this whenever a customer asks about cinema "
-                    "packages, prices, what is included, or wants to see the menu."
+                    "Sends the cinema menu image to the customer showing all packages and prices. "
+                    "Only call this when the customer EXPLICITLY asks one of these: "
+                    "'show menu', 'what are your packages', 'what do you have', "
+                    "'how much', 'prices', 'what is included', 'what package includes', "
+                    "'send menu', 'I want to see the menu'. "
+                    "NEVER call this when the customer provides a date or session choice. "
+                    "If you already sent the menu image in a previous turn, do not send it again."
                 ),
                 "parameters": {
                     "type": "OBJECT",
@@ -333,13 +340,14 @@ def execute_tool(name, args, sender_id=None):
             return {"available": hall is not None}
 
         if name == "send_menu_image":
-            if not APP_URL:
-                return {"error": "APP_URL not configured", "error_type": "config"}
             if not sender_id:
                 return {"error": "No recipient", "error_type": "config"}
             from services.instagram import send_image
-            image_url = f"{APP_URL}/static/menu.png"
-            send_image(sender_id, image_url)
+            image_url = "https://raw.githubusercontent.com/kristophershola/lavish-booking-bot/main/static/menu.png"
+            response = send_image(sender_id, image_url)
+            if "error" in response:
+                print(f"SEND MENU IMAGE FAILED: {response['error']}")
+                return {"sent": False, "error": str(response["error"].get("message", "Upload failed"))}
             return {"sent": True}
 
         return {"error": f"Unknown tool: {name}", "error_type": "unknown_tool"}
