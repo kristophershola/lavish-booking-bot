@@ -9,7 +9,7 @@ BOT_ACCOUNT_ID = os.getenv("BOT_ACCOUNT_ID")
 # since this gets resent on every single request, including every tool
 # call hop within one exchange, and Groq's free tier has a tokens per
 # minute limit as well as a daily request limit.
-MAX_HISTORY_TURNS = 3
+MAX_HISTORY_TURNS = 2
 
 # Timezone used for all date and time calculations
 TIMEZONE = "Africa/Lagos"

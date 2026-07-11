@@ -18,13 +18,15 @@ FALLBACK_REPLY = "Thanks for reaching out, a team member will be with you shortl
 RETRY_DELAY_PATTERN = re.compile(r"try again in ([\d.]+)s", re.IGNORECASE)
 
 # Smaller, faster models occasionally hallucinate a fake textual function
-# call instead of using the real tool_calls mechanism, something like
-# <function=name>{"arg": "value"}</function>. This pattern catches that so
-# we can still execute the real tool rather than let the raw text through.
-FAKE_FUNCTION_CALL_PATTERN = re.compile(
-    r"<function=([a-zA-Z_][a-zA-Z0-9_]*)>\s*(\{.*?\})\s*</?function>",
-    re.DOTALL
-)
+# call instead of using the real tool_calls mechanism. Two formats seen:
+#   <function=name>{"arg": "value"}</function>
+#   {name>{"arg": "value"}}
+# These patterns catch both so we can execute the real tool instead of
+# letting the raw text through to the customer.
+FAKE_FUNCTION_CALL_PATTERNS = [
+    re.compile(r"<function=([a-zA-Z_][a-zA-Z0-9_]*)>\s*(\{.*?\})\s*</?function>", re.DOTALL),
+    re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)>\s*(\{.*?\})\}", re.DOTALL),
+]
 
 
 def _extract_suggested_delay(error_data, fallback=2.0):
@@ -73,25 +75,25 @@ def _call_groq(messages, retries=2):
 
 
 def _extract_fake_function_call(content):
-    """Detects the hallucinated <function=name>{...}</function> pattern in
-    plain text content. Returns (name, args_dict) if found, else None.
+    """Detects hallucinated function call patterns in plain text content.
+    Returns (name, args_dict) if found, else None.
     """
     if not content:
         return None
 
-    match = FAKE_FUNCTION_CALL_PATTERN.search(content)
-    if not match:
-        return None
+    for pattern in FAKE_FUNCTION_CALL_PATTERNS:
+        match = pattern.search(content)
+        if match:
+            name = match.group(1)
+            raw_args = match.group(2)
+            try:
+                args = json.loads(raw_args)
+            except json.JSONDecodeError:
+                print(f"Could not parse fake function call args: {raw_args!r}")
+                continue
+            return name, args
 
-    name = match.group(1)
-    raw_args = match.group(2)
-    try:
-        args = json.loads(raw_args)
-    except json.JSONDecodeError:
-        print(f"Could not parse fake function call args: {raw_args!r}")
-        return None
-
-    return name, args
+    return None
 
 
 def _sanitize_reply(reply_text):
@@ -99,7 +101,13 @@ def _sanitize_reply(reply_text):
     function call tag reach a real customer, even if something slips past
     the earlier detection above.
     """
-    if not reply_text or "<function" in reply_text or "functionCall" in reply_text:
+    if not reply_text:
+        return FALLBACK_REPLY
+    if "<function" in reply_text or "functionCall" in reply_text:
+        print(f"SANITIZE: rejected suspicious reply text: {reply_text!r}")
+        return FALLBACK_REPLY
+    # Catch {name>{...}} format
+    if re.search(r"\{([a-zA-Z_][a-zA-Z0-9_]*)>\s*\{", reply_text):
         print(f"SANITIZE: rejected suspicious reply text: {reply_text!r}")
         return FALLBACK_REPLY
     return reply_text
