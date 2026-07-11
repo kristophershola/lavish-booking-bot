@@ -56,3 +56,20 @@ def check_double_session_availability(date, first_session_index):
         if first_available and second_available:
             return hall_tab
     return None
+
+
+def list_available_cinema_sessions(date):
+    """Checks all 6 sessions for a given date and returns a list of available
+    session indices (0-5). A session is available if at least one hall has it free.
+    """
+    from services.sheets import get_hall_tab_rows, is_session_available
+
+    available_sessions = []
+    for session_index in range(len(SESSIONS)):
+        for hall_tab in HALL_TABS:
+            rows = get_hall_tab_rows(hall_tab)
+            available = is_session_available(rows, date, session_index)
+            if available:
+                available_sessions.append(session_index)
+                break  # found at least one hall with this session free
+    return available_sessions

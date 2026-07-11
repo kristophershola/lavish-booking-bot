@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from booking.apartments import check_apartment_availability, calculate_apartment_price
-from booking.cinema import find_available_hall, check_double_session_availability
+from booking.cinema import find_available_hall, check_double_session_availability, list_available_cinema_sessions
 
 # Groq (OpenAI-compatible) function calling tool declarations. Descriptions
 # are written for the model, so it knows exactly when and how to call each one.
@@ -60,11 +60,32 @@ TOOL_DECLARATIONS = [
     {
         "type": "function",
         "function": {
+            "name": "list_available_cinema_sessions",
+            "description": (
+                "Checks all 6 cinema sessions for a given date and returns a list of "
+                "available session indices (0-5). Use this when a customer asks about "
+                "cinema availability for a date, before asking which session they prefer."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "date": {
+                        "type": "string",
+                        "description": "The exact calendar date to check, in YYYY-MM-DD format, resolved using the DATE CONTEXT provided."
+                    }
+                },
+                "required": ["date"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "find_available_hall",
             "description": (
-                "Checks whether a cinema session is available on a given date. Use this "
-                "whenever a customer asks about cinema availability for a specific date "
-                "and session."
+                "Checks whether a specific cinema session is available on a given date. "
+                "Use this after the customer has chosen a session from the available "
+                "options returned by list_available_cinema_sessions."
             ),
             "parameters": {
                 "type": "object",
@@ -89,7 +110,8 @@ TOOL_DECLARATIONS = [
             "description": (
                 "Checks whether two consecutive cinema sessions are both free on a given "
                 "date, for an XTRA TIME double session booking. Use this only when a "
-                "customer explicitly wants a double length session spanning two sessions."
+                "customer explicitly wants a double length session spanning two sessions "
+                "(also called 'Extra Time' or 'XTRA TIME')."
             ),
             "parameters": {
                 "type": "object",
@@ -113,7 +135,7 @@ TOOL_DECLARATIONS = [
 # Gemini uses a different schema shape (function_declarations wrapped in
 # one dict, uppercase JSON types) but the same underlying tools and
 # descriptions as the Groq declarations above. Kept in sync manually since
-# there are only four tools.
+# there are only five tools.
 GEMINI_TOOL_DECLARATIONS = [
     {
         "function_declarations": [
@@ -163,11 +185,29 @@ GEMINI_TOOL_DECLARATIONS = [
                 }
             },
             {
+                "name": "list_available_cinema_sessions",
+                "description": (
+                    "Checks all 6 cinema sessions for a given date and returns a list of "
+                    "available session indices (0-5). Use this when a customer asks about "
+                    "cinema availability for a date, before asking which session they prefer."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "date": {
+                            "type": "STRING",
+                            "description": "The exact calendar date to check, in YYYY-MM-DD format, resolved using the DATE CONTEXT provided."
+                        }
+                    },
+                    "required": ["date"]
+                }
+            },
+            {
                 "name": "find_available_hall",
                 "description": (
-                    "Checks whether a cinema session is available on a given date. Use this "
-                    "whenever a customer asks about cinema availability for a specific date "
-                    "and session."
+                    "Checks whether a specific cinema session is available on a given date. "
+                    "Use this after the customer has chosen a session from the available "
+                    "options returned by list_available_cinema_sessions."
                 ),
                 "parameters": {
                     "type": "OBJECT",
@@ -189,7 +229,8 @@ GEMINI_TOOL_DECLARATIONS = [
                 "description": (
                     "Checks whether two consecutive cinema sessions are both free on a given "
                     "date, for an XTRA TIME double session booking. Use this only when a "
-                    "customer explicitly wants a double length session spanning two sessions."
+                    "customer explicitly wants a double length session spanning two sessions "
+                    "(also called 'Extra Time' or 'XTRA TIME')."
                 ),
                 "parameters": {
                     "type": "OBJECT",
@@ -244,6 +285,12 @@ def execute_tool(name, args):
             nights = _coerce_int(args.get("nights"), default=1)
             price = calculate_apartment_price(tier, headcount=headcount, nights=nights)
             return {"total_price_naira": price, "nights": nights}
+
+        if name == "list_available_cinema_sessions":
+            date = _parse_iso_date(args["date"])
+            from booking.cinema import list_available_cinema_sessions
+            available_indices = list_available_cinema_sessions(date)
+            return {"available_sessions": available_indices}
 
         if name == "find_available_hall":
             date = _parse_iso_date(args["date"])
