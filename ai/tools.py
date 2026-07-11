@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from config import APP_URL
 from booking.apartments import check_apartment_availability, calculate_apartment_price
 from booking.cinema import find_available_hall, check_double_session_availability, list_available_cinema_sessions
 
@@ -128,6 +129,21 @@ TOOL_DECLARATIONS = [
                 "required": ["date", "first_session_index"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_menu_image",
+            "description": (
+                "Sends the cinema menu image to the customer showing all packages, "
+                "prices, and extras. Call this whenever a customer asks about cinema "
+                "packages, prices, what is included, or wants to see the menu."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {}
+            }
+        }
     }
 ]
 
@@ -246,6 +262,18 @@ GEMINI_TOOL_DECLARATIONS = [
                     },
                     "required": ["date", "first_session_index"]
                 }
+            },
+            {
+                "name": "send_menu_image",
+                "description": (
+                    "Sends the cinema menu image to the customer showing all packages, "
+                    "prices, and extras. Call this whenever a customer asks about cinema "
+                    "packages, prices, what is included, or wants to see the menu."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {}
+                }
             }
         ]
     }
@@ -268,7 +296,7 @@ def _coerce_int(value, default=None):
         return default
 
 
-def execute_tool(name, args):
+def execute_tool(name, args, sender_id=None):
     """Dispatches a tool call to the real booking logic and returns a plain
     dict suitable for sending back as a tool result. Never lets internal
     unit or hall names leak into the response, only availability booleans.
@@ -303,6 +331,16 @@ def execute_tool(name, args):
             first_session_index = _coerce_int(args["first_session_index"])
             hall = check_double_session_availability(date, first_session_index)
             return {"available": hall is not None}
+
+        if name == "send_menu_image":
+            if not APP_URL:
+                return {"error": "APP_URL not configured", "error_type": "config"}
+            if not sender_id:
+                return {"error": "No recipient", "error_type": "config"}
+            from services.instagram import send_image
+            image_url = f"{APP_URL}/static/menu.png"
+            send_image(sender_id, image_url)
+            return {"sent": True}
 
         return {"error": f"Unknown tool: {name}", "error_type": "unknown_tool"}
 

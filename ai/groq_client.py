@@ -140,7 +140,7 @@ def generate_ai_reply(sender_id, customer_message):
                     args = {}
 
                 print(f"GROQ TOOL CALL: {name} with args {json.dumps(args)}")
-                result = execute_tool(name, args)
+                result = execute_tool(name, args, sender_id=sender_id)
                 print(f"TOOL RESULT for {name}: {json.dumps(result)}")
 
                 # If tool returned a date format error, inject a correction note
@@ -173,7 +173,7 @@ def generate_ai_reply(sender_id, customer_message):
         if fake_call:
             name, args = fake_call
             print(f"DETECTED FAKE FUNCTION CALL TEXT, recovering: {name} with args {json.dumps(args)}")
-            result = execute_tool(name, args)
+            result = execute_tool(name, args, sender_id=sender_id)
             print(f"TOOL RESULT for {name} (recovered): {json.dumps(result)}")
 
             messages.append({"role": "assistant", "content": content})

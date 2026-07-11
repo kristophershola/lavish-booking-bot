@@ -54,6 +54,26 @@ def send_message(recipient_id, message_text):
     return result
 
 
+def send_image(recipient_id, image_url):
+    """Sends an image to a recipient via Instagram messaging."""
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_ACCOUNT_ID}/messages"
+    payload = {
+        "recipient": {"id": recipient_id},
+        "message": {
+            "attachment": {
+                "type": "image",
+                "payload": {"url": image_url}
+            }
+        }
+    }
+    params = {"access_token": PAGE_ACCESS_TOKEN}
+
+    response = requests.post(url, params=params, json=payload)
+    result = response.json()
+    print("SEND IMAGE RESPONSE:", json.dumps(result, indent=2))
+    return result
+
+
 def is_our_own_account(sender_id, entry_id):
     """True if a message came from the bot's own account rather than a
     customer, whether identified by the webhook entry id or the account's

@@ -30,3 +30,6 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 # client routes/webhook.py imports from (ai.gemini_client vs ai.groq_client).
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+# Public base URL for serving static assets (e.g. the cinema menu image).
+APP_URL = os.getenv("APP_URL")
