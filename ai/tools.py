@@ -10,18 +10,13 @@ TOOL_DECLARATIONS = [
         "type": "function",
         "function": {
             "name": "check_apartment_availability",
-            "description": (
-                "Checks whether at least one apartment unit is free on a given date. "
-                "Use this whenever a customer asks about apartment availability for a "
-                "specific date, regardless of which tier (2 Bedroom, 3 Bedroom, or "
-                "Special Event) they eventually choose, since all units support all tiers."
-            ),
+            "description": "Check if any apartment is free on a given date (YYYY-MM-DD). Call when customer asks about apartment availability for a specific date.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "date": {
                         "type": "string",
-                        "description": "The exact calendar date to check, in YYYY-MM-DD format, resolved using the DATE CONTEXT provided."
+                        "description": "Date in YYYY-MM-DD format from DATE CONTEXT."
                     }
                 },
                 "required": ["date"]
@@ -32,25 +27,22 @@ TOOL_DECLARATIONS = [
         "type": "function",
         "function": {
             "name": "calculate_apartment_price",
-            "description": (
-                "Calculates the nightly price for an apartment booking. Automatically "
-                "applies the Special Event rate if headcount exceeds 10 people."
-            ),
+            "description": "Calculate nightly price for an apartment booking. Use Special Event rate if headcount > 10.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "tier": {
                         "type": "string",
                         "enum": ["2_bedroom", "3_bedroom"],
-                        "description": "The apartment tier the customer wants, ignored if headcount triggers the Special Event rate instead."
+                        "description": "Apartment tier (ignored if Special Event rate applies)."
                     },
                     "headcount": {
                         "type": "integer",
-                        "description": "Total number of people expected, including visitors. Omit if not mentioned."
+                        "description": "Total people expected. Omit if not mentioned."
                     },
                     "nights": {
                         "type": "integer",
-                        "description": "Number of nights, defaults to 1 if not specified."
+                        "description": "Number of nights. Default 1."
                     }
                 },
                 "required": ["tier"]
@@ -61,17 +53,13 @@ TOOL_DECLARATIONS = [
         "type": "function",
         "function": {
             "name": "list_available_cinema_sessions",
-            "description": (
-                "Checks all 6 cinema sessions for a given date and returns a list of "
-                "available session indices (0-5). Use this when a customer asks about "
-                "cinema availability for a date, before asking which session they prefer."
-            ),
+            "description": "Check all 6 cinema sessions for a date, returns available indices (0-5). Call before asking which session they prefer.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "date": {
                         "type": "string",
-                        "description": "The exact calendar date to check, in YYYY-MM-DD format, resolved using the DATE CONTEXT provided."
+                        "description": "Date in YYYY-MM-DD format from DATE CONTEXT."
                     }
                 },
                 "required": ["date"]
@@ -82,21 +70,17 @@ TOOL_DECLARATIONS = [
         "type": "function",
         "function": {
             "name": "find_available_hall",
-            "description": (
-                "Checks whether a specific cinema session is available on a given date. "
-                "Use this after the customer has chosen a session from the available "
-                "options returned by list_available_cinema_sessions."
-            ),
+            "description": "Confirm a specific cinema session is still free. Call after customer picks a session.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "date": {
                         "type": "string",
-                        "description": "The exact calendar date to check, in YYYY-MM-DD format, resolved using the DATE CONTEXT provided."
+                        "description": "Date in YYYY-MM-DD format."
                     },
                     "session_index": {
                         "type": "integer",
-                        "description": "0 for 9:30-11:50am, 1 for 12:00-2:20pm, 2 for 2:30-4:50pm, 3 for 5:00-7:20pm, 4 for 7:30-9:50pm, 5 for 10:00pm-midnight."
+                        "description": "0=9:30-11:50am, 1=12:00-2:20pm, 2=2:30-4:50pm, 3=5:00-7:20pm, 4=7:30-9:50pm, 5=10:00pm-midnight."
                     }
                 },
                 "required": ["date", "session_index"]
@@ -107,22 +91,17 @@ TOOL_DECLARATIONS = [
         "type": "function",
         "function": {
             "name": "check_double_session_availability",
-            "description": (
-                "Checks whether two consecutive cinema sessions are both free on a given "
-                "date, for an XTRA TIME double session booking. Use this only when a "
-                "customer explicitly wants a double length session spanning two sessions "
-                "(also called 'Extra Time' or 'XTRA TIME')."
-            ),
+            "description": "Check if two consecutive cinema sessions are free (XTRA TIME / Extra Time). Only call when customer explicitly asks for double/Extra Time.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "date": {
                         "type": "string",
-                        "description": "The exact calendar date to check, in YYYY-MM-DD format."
+                        "description": "Date in YYYY-MM-DD format."
                     },
                     "first_session_index": {
                         "type": "integer",
-                        "description": "Index (0 through 4) of the first of the two consecutive sessions."
+                        "description": "Index (0-4) of the first of two consecutive sessions."
                     }
                 },
                 "required": ["date", "first_session_index"]
@@ -133,15 +112,7 @@ TOOL_DECLARATIONS = [
         "type": "function",
         "function": {
             "name": "send_menu_image",
-            "description": (
-                "Sends the cinema menu image to the customer showing all packages and prices. "
-                "Only call this when the customer EXPLICITLY asks one of these: "
-                "'show menu', 'what are your packages', 'what do you have', "
-                "'how much', 'prices', 'what is included', 'what package includes', "
-                "'send menu', 'I want to see the menu'. "
-                "NEVER call this when the customer provides a date or session choice. "
-                "If you already sent the menu image in a previous turn, do not send it again."
-            ),
+            "description": "Send cinema menu image to customer. Only call when customer explicitly asks about menu/packages/prices/how much. NEVER call when customer mentions a date or session.",
             "parameters": {
                 "type": "object",
                 "properties": {}
@@ -160,18 +131,13 @@ GEMINI_TOOL_DECLARATIONS = [
         "function_declarations": [
             {
                 "name": "check_apartment_availability",
-                "description": (
-                    "Checks whether at least one apartment unit is free on a given date. "
-                    "Use this whenever a customer asks about apartment availability for a "
-                    "specific date, regardless of which tier (2 Bedroom, 3 Bedroom, or "
-                    "Special Event) they eventually choose, since all units support all tiers."
-                ),
+                "description": "Check if any apartment is free on a given date (YYYY-MM-DD). Call when customer asks about apartment availability for a specific date.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
                         "date": {
                             "type": "STRING",
-                            "description": "The exact calendar date to check, in YYYY-MM-DD format, resolved using the DATE CONTEXT provided."
+                            "description": "Date in YYYY-MM-DD format from DATE CONTEXT."
                         }
                     },
                     "required": ["date"]
@@ -179,25 +145,22 @@ GEMINI_TOOL_DECLARATIONS = [
             },
             {
                 "name": "calculate_apartment_price",
-                "description": (
-                    "Calculates the nightly price for an apartment booking. Automatically "
-                    "applies the Special Event rate if headcount exceeds 10 people."
-                ),
+                "description": "Calculate nightly price for an apartment booking. Use Special Event rate if headcount > 10.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
                         "tier": {
                             "type": "STRING",
                             "enum": ["2_bedroom", "3_bedroom"],
-                            "description": "The apartment tier the customer wants, ignored if headcount triggers the Special Event rate instead."
+                            "description": "Apartment tier (ignored if Special Event rate applies)."
                         },
                         "headcount": {
                             "type": "INTEGER",
-                            "description": "Total number of people expected, including visitors. Omit if not mentioned."
+                            "description": "Total people expected. Omit if not mentioned."
                         },
                         "nights": {
                             "type": "INTEGER",
-                            "description": "Number of nights, defaults to 1 if not specified."
+                            "description": "Number of nights. Default 1."
                         }
                     },
                     "required": ["tier"]
@@ -205,17 +168,13 @@ GEMINI_TOOL_DECLARATIONS = [
             },
             {
                 "name": "list_available_cinema_sessions",
-                "description": (
-                    "Checks all 6 cinema sessions for a given date and returns a list of "
-                    "available session indices (0-5). Use this when a customer asks about "
-                    "cinema availability for a date, before asking which session they prefer."
-                ),
+                "description": "Check all 6 cinema sessions for a date, returns available indices (0-5). Call before asking which session they prefer.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
                         "date": {
                             "type": "STRING",
-                            "description": "The exact calendar date to check, in YYYY-MM-DD format, resolved using the DATE CONTEXT provided."
+                            "description": "Date in YYYY-MM-DD format from DATE CONTEXT."
                         }
                     },
                     "required": ["date"]
@@ -223,21 +182,17 @@ GEMINI_TOOL_DECLARATIONS = [
             },
             {
                 "name": "find_available_hall",
-                "description": (
-                    "Checks whether a specific cinema session is available on a given date. "
-                    "Use this after the customer has chosen a session from the available "
-                    "options returned by list_available_cinema_sessions."
-                ),
+                "description": "Confirm a specific cinema session is still free. Call after customer picks a session.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
                         "date": {
                             "type": "STRING",
-                            "description": "The exact calendar date to check, in YYYY-MM-DD format, resolved using the DATE CONTEXT provided."
+                            "description": "Date in YYYY-MM-DD format."
                         },
                         "session_index": {
                             "type": "INTEGER",
-                            "description": "0 for 9:30-11:50am, 1 for 12:00-2:20pm, 2 for 2:30-4:50pm, 3 for 5:00-7:20pm, 4 for 7:30-9:50pm, 5 for 10:00pm-midnight."
+                            "description": "0=9:30-11:50am, 1=12:00-2:20pm, 2=2:30-4:50pm, 3=5:00-7:20pm, 4=7:30-9:50pm, 5=10:00pm-midnight."
                         }
                     },
                     "required": ["date", "session_index"]
@@ -245,22 +200,17 @@ GEMINI_TOOL_DECLARATIONS = [
             },
             {
                 "name": "check_double_session_availability",
-                "description": (
-                    "Checks whether two consecutive cinema sessions are both free on a given "
-                    "date, for an XTRA TIME double session booking. Use this only when a "
-                    "customer explicitly wants a double length session spanning two sessions "
-                    "(also called 'Extra Time' or 'XTRA TIME')."
-                ),
+                "description": "Check if two consecutive cinema sessions are free (XTRA TIME / Extra Time). Only call when customer explicitly asks for double/Extra Time.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
                         "date": {
                             "type": "STRING",
-                            "description": "The exact calendar date to check, in YYYY-MM-DD format."
+                            "description": "Date in YYYY-MM-DD format."
                         },
                         "first_session_index": {
                             "type": "INTEGER",
-                            "description": "Index (0 through 4) of the first of the two consecutive sessions."
+                            "description": "Index (0-4) of the first of two consecutive sessions."
                         }
                     },
                     "required": ["date", "first_session_index"]
@@ -268,15 +218,7 @@ GEMINI_TOOL_DECLARATIONS = [
             },
             {
                 "name": "send_menu_image",
-                "description": (
-                    "Sends the cinema menu image to the customer showing all packages and prices. "
-                    "Only call this when the customer EXPLICITLY asks one of these: "
-                    "'show menu', 'what are your packages', 'what do you have', "
-                    "'how much', 'prices', 'what is included', 'what package includes', "
-                    "'send menu', 'I want to see the menu'. "
-                    "NEVER call this when the customer provides a date or session choice. "
-                    "If you already sent the menu image in a previous turn, do not send it again."
-                ),
+                "description": "Send cinema menu image to customer. Only call when customer explicitly asks about menu/packages/prices/how much. NEVER call when customer mentions a date or session.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {}

@@ -11,7 +11,7 @@ from state.conversation import get_history, append_turn
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-MAX_TOOL_HOPS = 3
+MAX_TOOL_HOPS = 2
 
 FALLBACK_REPLY = "Thanks for reaching out, a team member will be with you shortly."
 
