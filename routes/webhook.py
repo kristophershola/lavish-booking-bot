@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Response
 
 from config import VERIFY_TOKEN
-from ai.gemini_client import generate_ai_reply
+from ai.groq_client import generate_ai_reply
 from services.instagram import fetch_recent_conversation_messages, send_message, is_our_own_account
 from state.conversation import is_processed, mark_processed
 
