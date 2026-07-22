@@ -37,3 +37,9 @@ def seed_processed_ids(message_ids):
         if message_id:
             _processed_message_ids.add(message_id)
     print(f"Startup: seeded {len(_processed_message_ids)} existing message ids as already processed")
+
+
+def append_system_note(sender_id, note_text):
+    history = _conversation_history.get(sender_id, [])
+    history.append({"role": "system", "content": note_text})
+    _conversation_history[sender_id] = history
