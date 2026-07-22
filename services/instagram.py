@@ -80,3 +80,34 @@ def is_our_own_account(sender_id, entry_id):
     Instagram scoped id seen when its own replies loop back through.
     """
     return sender_id == entry_id or sender_id == BOT_ACCOUNT_ID
+
+
+def build_quick_reply_payload(recipient_id, text, buttons):
+    """Build a message payload with quick reply buttons.
+    buttons is a list of {"title": str, "payload": str}.
+    """
+    return {
+        "recipient": {"id": recipient_id},
+        "message": {
+            "text": text,
+            "quick_replies": [
+                {
+                    "content_type": "text",
+                    "title": btn["title"],
+                    "payload": btn["payload"]
+                }
+                for btn in buttons
+            ]
+        }
+    }
+
+
+def send_quick_reply(recipient_id, text, buttons):
+    """Send a text message with quick reply buttons via Instagram Graph API."""
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_ACCOUNT_ID}/messages"
+    payload = build_quick_reply_payload(recipient_id, text, buttons)
+    params = {"access_token": PAGE_ACCESS_TOKEN}
+    response = requests.post(url, params=params, json=payload)
+    result = response.json()
+    print("SEND QUICK REPLY RESPONSE:", json.dumps(result, indent=2))
+    return result
