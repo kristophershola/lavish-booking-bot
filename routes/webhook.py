@@ -10,7 +10,7 @@ from services.instagram import (
 )
 from services.menu import MAIN_MENU, QUIET_OR_PARTY, RESPONSES
 from state.conversation import is_processed, mark_processed, append_system_note
-from state.user_state import get_state, set_state, clear_state
+from state.user_state import get_state, set_state
 
 router = APIRouter()
 
@@ -21,7 +21,7 @@ def _get_payload(message):
     return quick_reply.get("payload") if quick_reply else None
 
 
-def _handle_button_press(sender_id, payload, message_text):
+def _handle_button_press(sender_id, payload):
     """Route a quick-reply button press through the state machine.
     Returns True if the button was handled (no AI call needed).
     """
@@ -74,7 +74,7 @@ def handle_customer_message(sender_id, text, message=None):
     # Check for quick reply payload first
     payload = _get_payload(message)
     if payload:
-        handled = _handle_button_press(sender_id, payload, text)
+        handled = _handle_button_press(sender_id, payload)
         if handled:
             return
 
