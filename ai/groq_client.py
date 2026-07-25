@@ -26,6 +26,10 @@ RETRY_DELAY_PATTERN = re.compile(r"try again in ([\d.]+)s", re.IGNORECASE)
 FAKE_FUNCTION_CALL_PATTERNS = [
     re.compile(r"<function=([a-zA-Z_][a-zA-Z0-9_]*)>\s*(\{.*?\})\s*</?function>", re.DOTALL),
     re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)>\s*(\{.*?\})\}", re.DOTALL),
+    # Bare "function=name>{...}" with no angle brackets and no closing tag.
+    # Seen in production from llama-3.1-8b-instant, this used to slip past
+    # both patterns above and reach the customer untouched.
+    re.compile(r"function=([a-zA-Z_][a-zA-Z0-9_]*)>\s*(\{.*?\})", re.DOTALL),
 ]
 
 
@@ -108,6 +112,11 @@ def _sanitize_reply(reply_text):
         return FALLBACK_REPLY
     # Catch {name>{...}} format
     if re.search(r"\{([a-zA-Z_][a-zA-Z0-9_]*)>\s*\{", reply_text):
+        print(f"SANITIZE: rejected suspicious reply text: {reply_text!r}")
+        return FALLBACK_REPLY
+    # Catch bare function=name>{...} format, in case the args JSON failed
+    # to parse and the fake-call recovery above skipped it
+    if re.search(r"function=[a-zA-Z_][a-zA-Z0-9_]*>", reply_text):
         print(f"SANITIZE: rejected suspicious reply text: {reply_text!r}")
         return FALLBACK_REPLY
     return reply_text

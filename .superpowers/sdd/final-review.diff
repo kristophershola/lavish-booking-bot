@@ -1,0 +1,336 @@
+﻿ routes/webhook.py          | 93 +++++++++++++++++++++++++++++++++++++++++++---
+ services/instagram.py      | 31 ++++++++++++++++
+ services/menu.py           | 24 ++++++++++++
+ state/conversation.py      |  6 +++
+ state/user_state.py        | 16 ++++++++
+ tests/test_conversation.py | 16 ++++++++
+ tests/test_instagram.py    | 15 ++++++++
+ tests/test_menu.py         | 21 +++++++++++
+ tests/test_user_state.py   | 22 +++++++++++
+ 9 files changed, 239 insertions(+), 5 deletions(-)
+diff --git a/routes/webhook.py b/routes/webhook.py
+index 524205b..91c1a79 100644
+--- a/routes/webhook.py
++++ b/routes/webhook.py
+@@ -2,14 +2,94 @@ from fastapi import APIRouter, Request, Response
+ 
+ from config import VERIFY_TOKEN
+ from ai.groq_client import generate_ai_reply
+-from services.instagram import fetch_recent_conversation_messages, send_message, is_our_own_account
+-from state.conversation import is_processed, mark_processed
++from services.instagram import (
++    fetch_recent_conversation_messages,
++    send_message,
++    send_quick_reply,
++    is_our_own_account,
++)
++from services.menu import MAIN_MENU, QUIET_OR_PARTY, RESPONSES
++from state.conversation import is_processed, mark_processed, append_system_note
++from state.user_state import get_state, set_state
+ 
+ router = APIRouter()
+ 
+ 
+-def handle_customer_message(sender_id, text):
++def _get_payload(message):
++    """Extract quick_reply payload from an Instagram message, or None."""
++    quick_reply = message.get("quick_reply") if message else None
++    return quick_reply.get("payload") if quick_reply else None
++
++
++def _handle_button_press(sender_id, payload):
++    """Route a quick-reply button press through the state machine.
++    Returns True if the button was handled (no AI call needed).
++    """
++    state = get_state(sender_id)
++    current_menu = state["menu"] if state else None
++
++    # MAIN_MENU buttons
++    if payload == "BOOK_APARTMENT":
++        set_state(sender_id, "APARTMENT_QUIET_PARTY", {"service": "apartment"})
++        send_quick_reply(sender_id, QUIET_OR_PARTY["text"], QUIET_OR_PARTY["buttons"])
++        return True
++
++    if payload == "BOOK_CINEMA":
++        set_state(sender_id, "CINEMA_BOOKING", {"service": "cinema"})
++        text = RESPONSES["BOOK_CINEMA"]
++        send_message(sender_id, text)
++        append_system_note(sender_id, "[System: Customer selected Book Cinema. Ask for their preferred date to check availability.]")
++        return False  # hand to AI
++
++    if payload == "SOMETHING_ELSE":
++        set_state(sender_id, "SOMETHING_ELSE", {})
++        text = RESPONSES["SOMETHING_ELSE"]
++        send_message(sender_id, text)
++        return False  # hand to AI
++
++    # APARTMENT_QUIET_PARTY buttons
++    if current_menu == "APARTMENT_QUIET_PARTY":
++        if payload == "QUIET_STAY":
++            set_state(sender_id, "APARTMENT_BOOKING", {"service": "apartment", "is_party": False})
++            append_system_note(sender_id, "[System: Customer selected Book an Apartment ΓÇö Quiet Stay. Proceed from tier determination.]")
++            return False  # hand to AI
++
++        if payload == "PARTY":
++            set_state(sender_id, "APARTMENT_BOOKING", {"service": "apartment", "is_party": True})
++            append_system_note(sender_id, "[System: Customer selected Book an Apartment ΓÇö Party. Special Event rate (200k/night) applies. Skip tier question.]")
++            return False  # hand to AI
++
++    return False
++
++
++def _show_main_menu(sender_id):
++    """Send the main menu and set user state."""
++    set_state(sender_id, "MAIN_MENU", {})
++    send_quick_reply(sender_id, MAIN_MENU["text"], MAIN_MENU["buttons"])
++
++
++def handle_customer_message(sender_id, text, message=None):
+     print(f"Message from {sender_id}: {text}")
++
++    # Check for quick reply payload first
++    payload = _get_payload(message)
++    if payload:
++        handled = _handle_button_press(sender_id, payload)
++        if handled:
++            return
++
++    # Show main menu to new users
++    state = get_state(sender_id)
++    if state is None:
++        _show_main_menu(sender_id)
++        return
++
++    # For return visitors at MAIN_MENU, re-send buttons
++    if state["menu"] == "MAIN_MENU":
++        _show_main_menu(sender_id)
++        return
++
++    # Pass to AI for free-text
+     reply = generate_ai_reply(sender_id, text)
+     print(f"Reply to {sender_id}: {reply}")
+     send_message(sender_id, reply)
+@@ -20,7 +100,6 @@ async def verify_webhook(request: Request):
+     mode = request.query_params.get("hub.mode")
+     token = request.query_params.get("hub.verify_token")
+     challenge = request.query_params.get("hub.challenge")
+-
+     if mode == "subscribe" and token == VERIFY_TOKEN:
+         return Response(content=challenge, media_type="text/plain")
+     return Response(status_code=403)
+@@ -42,7 +121,11 @@ async def receive_webhook(request: Request):
+ 
+             message = messaging_event.get("message")
+             if message and message.get("text"):
+-                handle_customer_message(sender_id, message.get("text"))
++                handle_customer_message(
++                    sender_id,
++                    message.get("text"),
++                    message=message
++                )
+                 continue
+ 
+             message_edit = messaging_event.get("message_edit")
+diff --git a/services/instagram.py b/services/instagram.py
+index 7be0285..46aa5d6 100644
+--- a/services/instagram.py
++++ b/services/instagram.py
+@@ -80,3 +80,34 @@ def is_our_own_account(sender_id, entry_id):
+     Instagram scoped id seen when its own replies loop back through.
+     """
+     return sender_id == entry_id or sender_id == BOT_ACCOUNT_ID
++
++
++def build_quick_reply_payload(recipient_id, text, buttons):
++    """Build a message payload with quick reply buttons.
++    buttons is a list of {"title": str, "payload": str}.
++    """
++    return {
++        "recipient": {"id": recipient_id},
++        "message": {
++            "text": text,
++            "quick_replies": [
++                {
++                    "content_type": "text",
++                    "title": btn["title"],
++                    "payload": btn["payload"]
++                }
++                for btn in buttons
++            ]
++        }
++    }
++
++
++def send_quick_reply(recipient_id, text, buttons):
++    """Send a text message with quick reply buttons via Instagram Graph API."""
++    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_ACCOUNT_ID}/messages"
++    payload = build_quick_reply_payload(recipient_id, text, buttons)
++    params = {"access_token": PAGE_ACCESS_TOKEN}
++    response = requests.post(url, params=params, json=payload)
++    result = response.json()
++    print("SEND QUICK REPLY RESPONSE:", json.dumps(result, indent=2))
++    return result
+diff --git a/services/menu.py b/services/menu.py
+new file mode 100644
+index 0000000..cbecc7f
+--- /dev/null
++++ b/services/menu.py
+@@ -0,0 +1,24 @@
++MAIN_MENU = {
++    "text": "Welcome to Lavish! How can we help you?",
++    "buttons": [
++        {"title": "Book an Apartment", "payload": "BOOK_APARTMENT"},
++        {"title": "Book Cinema", "payload": "BOOK_CINEMA"},
++        {"title": "Something Else?", "payload": "SOMETHING_ELSE"},
++    ]
++}
++
++QUIET_OR_PARTY = {
++    "text": "Will this be a quiet stay or a party?",
++    "buttons": [
++        {"title": "Quiet Stay", "payload": "QUIET_STAY"},
++        {"title": "Party", "payload": "PARTY"},
++    ]
++}
++
++RESPONSES = {
++    "BOOK_APARTMENT": None,
++    "QUIET_STAY": None,
++    "PARTY": None,
++    "BOOK_CINEMA": "What date(s) would you like to book? So we can check availability",
++    "SOMETHING_ELSE": "We're setting up our FAQ section. In the meantime, feel free to ask me anything!",
++}
+diff --git a/state/conversation.py b/state/conversation.py
+index 04d82c2..4d98f61 100644
+--- a/state/conversation.py
++++ b/state/conversation.py
+@@ -37,3 +37,9 @@ def seed_processed_ids(message_ids):
+         if message_id:
+             _processed_message_ids.add(message_id)
+     print(f"Startup: seeded {len(_processed_message_ids)} existing message ids as already processed")
++
++
++def append_system_note(sender_id, note_text):
++    history = _conversation_history.get(sender_id, [])
++    history.append({"role": "system", "content": note_text})
++    _conversation_history[sender_id] = history
+diff --git a/state/user_state.py b/state/user_state.py
+new file mode 100644
+index 0000000..35f7617
+--- /dev/null
++++ b/state/user_state.py
+@@ -0,0 +1,16 @@
++_user_state = {}
++
++
++def get_state(sender_id):
++    return _user_state.get(sender_id)
++
++
++def set_state(sender_id, menu, context=None):
++    _user_state[sender_id] = {
++        "menu": menu,
++        "context": context or {}
++    }
++
++
++def clear_state(sender_id):
++    _user_state.pop(sender_id, None)
+diff --git a/tests/test_conversation.py b/tests/test_conversation.py
+new file mode 100644
+index 0000000..5fdfb81
+--- /dev/null
++++ b/tests/test_conversation.py
+@@ -0,0 +1,16 @@
++from state.conversation import append_system_note, get_history
++
++
++def test_append_system_note():
++    append_system_note("sender_sys", "[System: test note]")
++    history = get_history("sender_sys")
++    assert len(history) >= 1
++    assert history[-1]["role"] == "system"
++    assert history[-1]["content"] == "[System: test note]"
++
++
++def test_append_system_note_does_not_affect_other_users():
++    append_system_note("sender_sys_2", "[System: note]")
++    history = get_history("sender_sys_2")
++    assert len(history) == 1
++    assert get_history("other_sender") == []
+diff --git a/tests/test_instagram.py b/tests/test_instagram.py
+new file mode 100644
+index 0000000..d1ca4d3
+--- /dev/null
++++ b/tests/test_instagram.py
+@@ -0,0 +1,15 @@
++from services.instagram import build_quick_reply_payload
++
++
++def test_build_quick_reply_payload():
++    buttons = [
++        {"title": "Quiet Stay", "payload": "QUIET_STAY"},
++        {"title": "Party", "payload": "PARTY"},
++    ]
++    payload = build_quick_reply_payload("recip_1", "Will this be a quiet stay or a party?", buttons)
++    assert payload["recipient"]["id"] == "recip_1"
++    assert payload["message"]["text"] == "Will this be a quiet stay or a party?"
++    assert len(payload["message"]["quick_replies"]) == 2
++    assert payload["message"]["quick_replies"][0]["content_type"] == "text"
++    assert payload["message"]["quick_replies"][0]["title"] == "Quiet Stay"
++    assert payload["message"]["quick_replies"][0]["payload"] == "QUIET_STAY"
+diff --git a/tests/test_menu.py b/tests/test_menu.py
+new file mode 100644
+index 0000000..fe9ab5c
+--- /dev/null
++++ b/tests/test_menu.py
+@@ -0,0 +1,21 @@
++from services.menu import MAIN_MENU, QUIET_OR_PARTY, RESPONSES
++
++
++def test_main_menu_has_three_buttons():
++    assert len(MAIN_MENU["buttons"]) == 3
++
++
++def test_main_menu_buttons_have_required_fields():
++    for btn in MAIN_MENU["buttons"]:
++        assert "title" in btn
++        assert "payload" in btn
++
++
++def test_quiet_or_party_has_two_buttons():
++    assert len(QUIET_OR_PARTY["buttons"]) == 2
++
++
++def test_responses_has_all_payloads():
++    all_payloads = {"BOOK_APARTMENT", "BOOK_CINEMA", "SOMETHING_ELSE", "QUIET_STAY", "PARTY"}
++    for p in all_payloads:
++        assert p in RESPONSES, f"Missing response for {p}"
+diff --git a/tests/test_user_state.py b/tests/test_user_state.py
+new file mode 100644
+index 0000000..cf1fc97
+--- /dev/null
++++ b/tests/test_user_state.py
+@@ -0,0 +1,22 @@
++from state.user_state import get_state, set_state, clear_state
++
++
++def test_get_state_returns_none_for_new_user():
++    assert get_state("unknown_sender") is None
++
++
++def test_set_and_get_state():
++    set_state("sender_1", "APARTMENT_QUIET_PARTY", {"service": "apartment"})
++    state = get_state("sender_1")
++    assert state["menu"] == "APARTMENT_QUIET_PARTY"
++    assert state["context"] == {"service": "apartment"}
++
++
++def test_clear_state():
++    set_state("sender_1", "APARTMENT_QUIET_PARTY", {})
++    clear_state("sender_1")
++    assert get_state("sender_1") is None
++
++
++def test_clear_state_unknown_sender_does_not_raise():
++    clear_state("never_set")

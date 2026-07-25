@@ -18,10 +18,18 @@ FALLBACK_REPLY = "Thanks for reaching out, a team member will be with you shortl
 # Same defensive pattern used in the Groq client, in case a model ever
 # hallucinates a fake textual function call instead of using the real
 # mechanism. Kept here too so switching providers doesn't lose this safety net.
-FAKE_FUNCTION_CALL_PATTERN = re.compile(
-    r"<function=([a-zA-Z_][a-zA-Z0-9_]*)>\s*(\{.*?\})\s*</?function>",
-    re.DOTALL
-)
+FAKE_FUNCTION_CALL_PATTERNS = [
+    re.compile(
+        r"<function=([a-zA-Z_][a-zA-Z0-9_]*)>\s*(\{.*?\})\s*</?function>",
+        re.DOTALL
+    ),
+    # Bare "function=name>{...}" with no angle brackets and no closing tag,
+    # the format seen leaking through on the Groq side in production.
+    re.compile(
+        r"function=([a-zA-Z_][a-zA-Z0-9_]*)>\s*(\{.*?\})",
+        re.DOTALL
+    ),
+]
 
 
 def _history_to_gemini_contents(history):
@@ -39,19 +47,26 @@ def _history_to_gemini_contents(history):
 def _extract_fake_function_call(text):
     if not text:
         return None
-    match = FAKE_FUNCTION_CALL_PATTERN.search(text)
-    if not match:
-        return None
-    name = match.group(1)
-    try:
-        args = json.loads(match.group(2))
-    except json.JSONDecodeError:
-        return None
-    return name, args
+    for pattern in FAKE_FUNCTION_CALL_PATTERNS:
+        match = pattern.search(text)
+        if not match:
+            continue
+        name = match.group(1)
+        try:
+            args = json.loads(match.group(2))
+        except json.JSONDecodeError:
+            continue
+        return name, args
+    return None
 
 
 def _sanitize_reply(reply_text):
     if not reply_text or "<function" in reply_text or "functionCall" in reply_text:
+        print(f"SANITIZE: rejected suspicious reply text: {reply_text!r}")
+        return FALLBACK_REPLY
+    # Catch bare function=name>{...} format, in case the args JSON failed
+    # to parse and the fake-call recovery above skipped it
+    if re.search(r"function=[a-zA-Z_][a-zA-Z0-9_]*>", reply_text):
         print(f"SANITIZE: rejected suspicious reply text: {reply_text!r}")
         return FALLBACK_REPLY
     return reply_text
