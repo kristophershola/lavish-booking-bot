@@ -84,9 +84,14 @@ def handle_customer_message(sender_id, text, message=None):
         _show_main_menu(sender_id)
         return
 
-    # For return visitors at MAIN_MENU, re-send buttons
+    # For return visitors at MAIN_MENU, route free text to the AI instead
+    # of re-sending buttons. The main menu buttons are shown once; after
+    # that, typed messages go to the AI which can handle them directly.
     if state["menu"] == "MAIN_MENU":
-        _show_main_menu(sender_id)
+        append_system_note(sender_id, "[System: Customer is at the main menu. Their message below was typed, not a button press. Handle their request directly.]")
+        reply = generate_ai_reply(sender_id, text)
+        print(f"Reply to {sender_id}: {reply}")
+        send_message(sender_id, reply)
         return
 
     # Pass to AI for free-text
