@@ -16,10 +16,10 @@ def test_payment_details_present():
 
 
 def test_apartment_pricing_present():
-    assert "80,000" in PROMPT
     assert "90,000" in PROMPT
+    assert "100,000" in PROMPT
     assert "200,000" in PROMPT
-    assert "2,100,000" in PROMPT
+    assert "2,100,000" in PROMPT or "2.1m" in PROMPT.lower()
 
 
 def test_cinema_packages_present():

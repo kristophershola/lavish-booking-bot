@@ -4,8 +4,8 @@
 # A 2 Bedroom booking blocks the entire unit regardless of headcount.
 
 APARTMENT_TIERS = {
-    "2_bedroom": {"label": "2 Bedroom", "price_per_night": 80000},
-    "3_bedroom": {"label": "3 Bedroom", "price_per_night": 90000},
+    "2_bedroom": {"label": "2 Bedroom", "price_per_night": 90000},
+    "3_bedroom": {"label": "3 Bedroom", "price_per_night": 100000},
 }
 
 SPECIAL_EVENT_RATE = {

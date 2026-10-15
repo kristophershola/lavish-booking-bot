@@ -21,8 +21,8 @@
     "reschedule_conditions": "Must reschedule within 1 week of original date. Fee must be paid ahead of time, not on visit day. Must confirm availability for new date first."
   },
   "apartment_pricing": {
-    "2_bedroom_per_night": 80000,
-    "3_bedroom_per_night": 90000,
+    "2_bedroom_per_night": 90000,
+    "3_bedroom_per_night": 100000,
     "special_event_per_night": 200000,
     "monthly_rate": 2100000,
     "discount": "For stays of 4 nights or more",

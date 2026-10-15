@@ -33,3 +33,8 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 # Public base URL for serving static assets (e.g. the cinema menu image).
 APP_URL = os.getenv("APP_URL")
+
+# Beeper Desktop Configuration
+BEEPER_BASE_URL = os.getenv("BEEPER_BASE_URL", "http://127.0.0.1:23373")
+BEEPER_API_TOKEN = os.getenv("BEEPER_API_TOKEN")
+BEEPER_POLL_INTERVAL = float(os.getenv("BEEPER_POLL_INTERVAL", "3.0"))

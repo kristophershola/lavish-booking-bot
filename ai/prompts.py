@@ -53,7 +53,7 @@ DATES: Use the DATE CONTEXT below for today's date and relative dates. Never cal
 BUSINESS_INFO_PLACEHOLDER
 
 APARTMENTS
-2 Bedroom: 80,000 naira/night. 3 Bedroom: 90,000 naira/night.
+2 Bedroom: 90,000 naira/night. 3 Bedroom: 100,000 naira/night.
 Special Event/Party: 200,000 naira/night (triggered when >10 people present at any time, including visitors, or bringing a DJ).
 Discounts: For stays of 4 nights or more in a single apartment.
 Booking lead time: Up to 1 month in advance.
