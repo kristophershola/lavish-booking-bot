@@ -73,6 +73,7 @@ def _sanitize_reply(reply_text):
 
 
 def _call_gemini(contents, retries=2):
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
     headers = {
         "Content-Type": "application/json",
         "x-goog-api-key": GEMINI_API_KEY
@@ -86,13 +87,17 @@ def _call_gemini(contents, retries=2):
     }
 
     for attempt in range(retries + 1):
-        response = requests.post(GEMINI_URL, headers=headers, json=body)
-        data = response.json()
+        try:
+            response = requests.post(url, headers=headers, json=body, timeout=25)
+            data = response.json()
 
-        if "candidates" in data:
-            return data
+            if "candidates" in data:
+                return data
 
-        print(f"GEMINI ATTEMPT {attempt + 1} FAILED:", json.dumps(data, indent=2))
+            print(f"GEMINI ATTEMPT {attempt + 1} FAILED:", json.dumps(data, indent=2))
+        except Exception as e:
+            print(f"GEMINI ATTEMPT {attempt + 1} EXCEPTION: {e}")
+
         if attempt < retries:
             time.sleep(2)
 
