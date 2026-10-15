@@ -21,13 +21,14 @@ SPREADSHEET_ID = os.getenv("SPREADSHEET_ID", "17-hZjuNdfEczlyLbNBEYmnWbAGLIl45-R
 APARTMENT_TABS = ["A1", "B1", "B2", "C1", "C2"]
 HALL_TABS = ["HALL 1", "HALL 2"]
 
-# Groq, replaces Gemini as the AI provider due to Gemini's free tier
-# request-per-day limit being too tight for real testing volume.
+# AI Provider selection: "gemini" or "groq"
+AI_PROVIDER = os.getenv("AI_PROVIDER", "gemini").lower()
+
+# Groq configuration
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
-# Gemini, available as an alternative to Groq. Switch by changing which
-# client routes/webhook.py imports from (ai.gemini_client vs ai.groq_client).
+# Gemini configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 

@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Request, Response
 
-from config import VERIFY_TOKEN
-from ai.groq_client import generate_ai_reply
+from config import VERIFY_TOKEN, AI_PROVIDER
+
+if AI_PROVIDER == "groq":
+    from ai.groq_client import generate_ai_reply
+else:
+    from ai.gemini_client import generate_ai_reply
 from services.instagram import (
     fetch_recent_conversation_messages,
     send_message,

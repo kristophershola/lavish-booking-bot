@@ -2,8 +2,14 @@ import argparse
 import sys
 import time
 import traceback
-from config import BEEPER_BASE_URL, BEEPER_POLL_INTERVAL
-from ai.groq_client import generate_ai_reply
+from config import BEEPER_BASE_URL, BEEPER_POLL_INTERVAL, AI_PROVIDER, GEMINI_MODEL, GROQ_MODEL
+
+if AI_PROVIDER == "groq":
+    from ai.groq_client import generate_ai_reply
+    ACTIVE_MODEL = GROQ_MODEL
+else:
+    from ai.gemini_client import generate_ai_reply
+    ACTIVE_MODEL = GEMINI_MODEL
 from services.beeper import (
     get_recent_chats,
     send_chat_message,
@@ -76,6 +82,7 @@ def run_worker():
     print(f"=================================================")
     print(f" Lavish Booking Bot - Beeper Worker Daemon       ")
     print(f" Target Endpoint: {BEEPER_BASE_URL}              ")
+    print(f" AI Provider:     {AI_PROVIDER.upper()} ({ACTIVE_MODEL})")
     print(f" Poll Interval:   {BEEPER_POLL_INTERVAL}s        ")
     print(f"=================================================")
 
